@@ -1,0 +1,20 @@
+{
+  "name": "shopgoodwill",
+  "version": "0.0.1",
+  "description": "shopgoodwill.com CLI - search and bid",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "shopgoodwill": "./index.js"
+  },
+  "author": "Shmoopi LLC",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^2.11.0",
+    "inquirer": "^3.2.3",
+    "puppeteer": "^0.10.2",
+    "winston": "^2.3.1"
+  }
+}
