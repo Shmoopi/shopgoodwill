@@ -8,6 +8,10 @@
  * @version 0.0.1
  * @example
  * shopgoodwill search "something 1" "something 2"
+ * @example
+ * shopgoodwill bid now -p 1.00 "id1"
+ * @example
+ * shopgoodwill bid later -r 6 -p 1.00 "id1"
  */
 
 /* Imports */
@@ -45,11 +49,15 @@ const PRODUCT_END_TIME_SELECTOR = '#search-results > div > section > ul.products
 const PRODUCT_IMAGE_SELECTOR = '#search-results > div > section > ul.products > li:nth-child(INDEX) > a > div.image > img';
 const PRODUCT_SELECTOR_CLASS = 'product';
 
+// ShopGoodWill shows 40 resuls per page
+const ITEMS_PER_PAGE = 40;
+
 /* Variables */
 
 // Search Params
 let search_Filepath = '';
 let search_Array = [];
+let search_Limit = 0;
 
 // URLS
 const HOME_URL = 'https://www.shopgoodwill.com/';
@@ -80,7 +88,8 @@ function cli() {
     program
         .command('search [query...]')
         .description('search queries quoted and separated by a space (i.e. "item 1" "item 2" "item 3")')
-        .option('-f, --file <path>', '.txt file separating search queries by nelines')
+        .option('-f, --file <path>', '.txt file separating search queries by newlines')
+        .option('-l, --limit <number>', 'number of search results to show')
         .action((query, options) => {
 
             // Check if search has the required options
@@ -88,10 +97,15 @@ function cli() {
                 program.help();
                 return;
             }
+            // Check what items to search for (either by file input or CLI)
             if (options.file) {
                 search_Filepath = options.file;
             } else {
                 search_Array = query;
+            }
+            // Check the number of items to search for
+            if (options.limit) {
+                search_Limit = options.limit;
             }
 
             // Run a new search
@@ -298,15 +312,26 @@ async function search(page) {
         // Log the number of search results found overall
         winston.debug('Number of search results found overall: ' + numberOfSearchItemsOverall);
 
+        // Limit to the number of search results (if applicable)
+        if (Number(search_Limit) > 0 && Number(search_Limit) < Number(numberOfSearchItemsOverall)) {
+            // Limit the search results to the max
+            numberOfSearchItemsOverall = search_Limit;
+            // Log the number of search results limited
+            winston.debug('Limiting search results to: ' + numberOfSearchItemsOverall);
+        }
+
         // Get the number of pages
         let numPages = await getNumPages(numberOfSearchItemsOverall);
 
         // Create the search output array
         let searchOutputArray = [];
 
+        // Create the count
+        let count = 0;
+
         // Go through all the pages with search results on them
         for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
-            let resultsForPage = await parseSearchResults(page, pageNumber);
+            let resultsForPage = await parseSearchResults(page, pageNumber, count);
             searchOutputArray = searchOutputArray.concat(resultsForPage);
         }
 
@@ -326,9 +351,11 @@ async function search(page) {
  * Parse Search Results function
  * Loads the search pages and parses data
  * @param {page} page - browser page to do search
+ * @param {Number} index - current index of the page (e.x. 1 out of 5 pages)
+ * @param {Number} count - current count of items (to limit output)
  * @returns {Object[]} - search page results
  */
-async function parseSearchResults(page, index) {
+async function parseSearchResults(page, index, count) {
 
     // Output array
     let searchPageResults = [];
@@ -344,7 +371,7 @@ async function parseSearchResults(page, index) {
         let currentPageNum = parseInt(urlRegex[1]);
 
         // Change it to the next page number
-        newURL = currentURL.replace('&p=' + currentPageNum + '&');
+        let newURL = currentURL.replace('&p=' + currentPageNum + '&');
 
         // Load the new url
         await page.goto(newURL);
@@ -358,6 +385,14 @@ async function parseSearchResults(page, index) {
 
     // Log the number of search results found on the page
     winston.debug('Number of results on page ' + index + ': ' + numberResultsForSearch);
+
+    // Check if there is a limit to the number of search results
+    if (Number(search_Limit) > 0 && Number(numberResultsForSearch) + Number(count) > Number(search_Limit)) {
+        // Limit the number of results
+        numberResultsForSearch = search_Limit - count;
+        // Limit the number of search results found on the page
+        winston.debug('Limiting number of results on page ' + index + ' to: ' + numberResultsForSearch);
+    }
 
     // Go through all the products
     for (let i = 1; i <= numberResultsForSearch; i++) {
@@ -409,7 +444,6 @@ async function parseSearchResults(page, index) {
 
         // Log the info
         winston.info('ID: ' + productNumber);
-        winston.info('ID: ' + productNumber);
         winston.info('Title: ' + productTitle);
         winston.info('Bids: ' + productBids);
         winston.info('Price: ' + productPrice);
@@ -427,6 +461,9 @@ async function parseSearchResults(page, index) {
             url: ITEM_URL + productNumber,
             image: productImageURL
         });
+
+        // Increment the count
+        count++;
     }
 
     // Return the results
@@ -443,7 +480,7 @@ async function outputSearchResults(searchResults) {
 
     // Check if the CLI flags want the output in the console or in a file
     if (!program.output || program.output.length < 1) {
-        console.log(JSON.stringify(searchResults));
+        console.log(JSON.stringify(searchResults, null, 4));
     } else {
         let shouldWrite = true;
         if (fs.existsSync(program.output)) {
@@ -458,12 +495,12 @@ async function outputSearchResults(searchResults) {
                     if (answers.yesno != "Yes") {
                         shouldWrite = false;
                         console.log('Not saving output to: ' + program.output);
-                        console.log(JSON.stringify(searchResults));
+                        console.log(JSON.stringify(searchResults, null, 4));
                     }
                 });
         }
         if (shouldWrite) {
-            fs.writeFile(program.output, JSON.stringify(searchResults), function (err) {
+            fs.writeFile(program.output, JSON.stringify(searchResults, null, 4), function (err) {
                 if (err) {
                     return console.log(err);
                 }
@@ -489,8 +526,8 @@ async function getNumPages(numberOfSearchItemsOverall) {
     // Get the number of pages as an int
     let numPages = parseInt(numberOfSearchItemsOverall);
 
-    // ShopGoodWill shows 40 resuls per page
-    numPages = Math.ceil(numPages / 40);
+    // Get the number of pages based on the number of items
+    numPages = Math.ceil(numPages / ITEMS_PER_PAGE);
 
     // Number of pages
     winston.debug('Number of Pages: ', numPages);
