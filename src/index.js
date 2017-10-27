@@ -36,7 +36,7 @@ const fs = require('fs');
 const USERNAME_SELECTOR = '#Username';
 const PASSWORD_SELECTOR = '#Password';
 const LOGIN_BUTTON_SELECTOR = '#login-submit';
-const LOGIN_FAILED_SELECTOR = '#login-form > div:nth-child(2) > span';
+const LOGIN_FAILED_SELECTOR = '#login-form > div:nth-child(3) > span';
 // Home Page
 const SEARCH_SELECTOR = '#search-text-header';
 const SEARCH_BUTTON_SELECTOR = '#searchBottomDeskTop > button';
@@ -52,17 +52,17 @@ const PRODUCT_SELECTOR_CLASS = 'product';
 // ShopGoodWill shows 40 resuls per page
 const ITEMS_PER_PAGE = 40;
 
+// URLS
+const HOME_URL = 'https://www.shopgoodwill.com/';
+const SIGNIN_URL = 'https://www.shopgoodwill.com/SignIn';
+const ITEM_URL = 'https://www.shopgoodwill.com/Item/';
+
 /* Variables */
 
 // Search Params
 let search_Filepath = '';
 let search_Array = [];
 let search_Limit = 0;
-
-// URLS
-const HOME_URL = 'https://www.shopgoodwill.com/';
-const SIGNIN_URL = 'https://www.shopgoodwill.com/SignIn';
-const ITEM_URL = 'https://www.shopgoodwill.com/Item/';
 
 /* Functions */
 
@@ -223,11 +223,9 @@ async function login(page) {
     await page.goto(SIGNIN_URL);
 
     // Put in the username and password
-    await page.click(USERNAME_SELECTOR);
-    await page.type(creds.username);
+    await page.type(USERNAME_SELECTOR, creds.username);
 
-    await page.click(PASSWORD_SELECTOR);
-    await page.type(creds.password);
+    await page.type(PASSWORD_SELECTOR, creds.password);
 
     // Click the login button
     await page.click(LOGIN_BUTTON_SELECTOR);
@@ -277,8 +275,7 @@ async function search(page) {
         }
 
         // Search for things
-        await page.click(SEARCH_SELECTOR);
-        await page.type(array[i]);
+        await page.type(SEARCH_SELECTOR, array[i]);
 
         // Click the login button
         await page.click(SEARCH_BUTTON_SELECTOR);
