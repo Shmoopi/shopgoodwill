@@ -9,18 +9,12 @@
             "name": "Launch Program",
             "program": "${workspaceRoot}/src/index.js",
             "args": [
-                "-vvvv",
+                "-vv",
                 "search",
                 "pokemon",
-                "-l",
-                "41"
+                "--limit",
+                "81"
             ]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Test Auth",
-            "program": "${workspaceRoot}/tests/searchtest.js"
         },
         {
             "type": "node",

@@ -33,15 +33,15 @@ const SIGNIN_URL = 'https://www.shopgoodwill.com/SignIn';
 /**
  * Login function
  * Logs into shopgoodwill.com with either a credentials file or prompts the user to authenticate over CLI
- * @param {page} page - browser page to do login
+ * @param {browser} browser - browser to do login
  * @return {error} - returns an error if authentication fails
  */
-async function login(page = undefined, credentials = undefined) {
+async function login(browser = undefined, credentials = undefined) {
 
-    // Check the page
-    if (!page) {
-        winston.error('Invalid Page Provided - unable to log in');
-        return new Error('Invalid Page Provided - unable to log in');
+    // Check the browser
+    if (!browser) {
+        winston.error('Invalid Browser Provided - unable to log in');
+        return new Error('Invalid Browser Provided - unable to log in');
     }
 
     // Check if credentials come from a file or if we need to authenticate
@@ -73,6 +73,9 @@ async function login(page = undefined, credentials = undefined) {
 
     }
 
+    // Create the page
+    const page = await browser.newPage();
+
     // Go to the login page
     await page.goto(SIGNIN_URL);
 
@@ -100,6 +103,9 @@ async function login(page = undefined, credentials = undefined) {
         winston.error('Invalid credentials - unable to log in');
         return new Error('Invalid credentials - unable to log in');
     }
+
+    // Close the page
+    await page.close();
 
 }
 

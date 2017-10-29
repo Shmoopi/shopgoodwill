@@ -11,10 +11,11 @@ const auth = require('../src/auth');
 
 // Test Authentication
 describe('auth', function () {
+    // Set the timeout for the search tests to 30 seconds
     this.timeout(30000);
 
-    // It should fail due to missing page
-    it('Should fail due to missing page', async() => {
+    // It should fail due to missing browser
+    it('Should fail due to missing browser', async() => {
 
         // Get the output
         let output = await auth.login();
@@ -32,14 +33,14 @@ describe('auth', function () {
             headless: true
         });
 
-        // Get a new page
-        const page = await browser.newPage();
-
         // Get the output
-        let output = await auth.login(page);
+        let output = await auth.login(browser);
 
         // Expectation
         expect(output).to.be.instanceOf(Error);
+
+        // Close the browser
+        await browser.close();
 
     });
 
@@ -51,19 +52,19 @@ describe('auth', function () {
             headless: true
         });
 
-        // Get a new page
-        const page = await browser.newPage();
-
         // Require path
         const path = require('path');
         let credsPath = path.join(__dirname, '..', 'src', 'creds.js');
 
         // Get the output
-        let output = await auth.login(page, credsPath);
+        let output = await auth.login(browser, credsPath);
 
         // Expectation
         expect(output).to.not.be.instanceOf(Error);
         expect(output).to.be.undefined;
+
+        // Close the browser
+        await browser.close();
 
     });
 

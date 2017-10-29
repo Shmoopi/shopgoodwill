@@ -34,16 +34,21 @@ const ITEMS_PER_PAGE = 40;
 const HOME_URL = 'https://www.shopgoodwill.com/';
 const ITEM_URL = 'https://www.shopgoodwill.com/Item/';
 
+/* Variables */
+
+// Search Count
+var search_Count = 0;
+
 /* Main */
 
 // Search class
 module.exports = class Search {
 
     // Constructor
-    constructor(query = undefined, limit = 0, headless = true) {
+    constructor(browser = undefined, query = undefined, limit = 0) {
+        this.browser = browser;
         this.query = query;
         this.limit = limit;
-        this.headless = headless;
         this.results = {};
     }
 
@@ -53,31 +58,32 @@ module.exports = class Search {
      */
     async getResults() {
 
+        // Verify the browser
+        if (!this.browser) {
+            winston.error('Invalid Browser - unable to search');
+            return new Error('Invalid Browser - unable to search');
+        }
+
         // Verify the query
-        if (!query || typeof query !== 'string') {
+        if (!this.query || typeof this.query !== 'string') {
             winston.error('Invalid Search Query - unable to search');
             return new Error('Invalid Search Query - unable to search');
         }
 
-        // Launch the browser
-        const browser = await puppeteer.launch({
-            headless: this.headless
-        });
-
         // Get a new page
-        const page = await browser.newPage();
+        const page = await this.browser.newPage();
 
         // Go to the home page
         await page.goto(HOME_URL);
 
         // Search
-        let searchResults = await searchQuery(page, this.query, this.limit);
+        this.results = await searchQuery(page, this.query, this.limit);
 
-        // Close the browser
-        browser.close();
+        // Close the page
+        await page.close();
 
         // Get the results
-        return searchResults;
+        return this.results;
     }
 
 }
@@ -92,7 +98,7 @@ module.exports = class Search {
 async function searchQuery(page, query, limit = 0) {
 
     // Create the results
-    let searchResults = [];
+    let searchResults = {};
 
     // Log the search string
     winston.info('Search query: ' + query);
@@ -120,19 +126,19 @@ async function searchQuery(page, query, limit = 0) {
 
     // Check if we actually received any matches
     if (!numberOfSearchItemsOverall || numberOfSearchItemsOverall.indexOf('No items found') !== -1) {
-        winston.info('No results found for search: ' + array[i]);
-        searchResults.push({
+        winston.info('No results found for search: ' + query);
+        searchResults = {
             search: query,
             count: 0,
             items: []
-        });
+        };
         return searchResults;
     }
 
     // Format is: "Showing 1–5 of 5 results
     let regexGetNumberBetweenSpaces = / (\d+) /;
     let itemsCountRegexArray = numberOfSearchItemsOverall.match(regexGetNumberBetweenSpaces);
-    if (itemsCountRegexArray.length > 0) {
+    if (itemsCountRegexArray && itemsCountRegexArray.length > 1) {
         numberOfSearchItemsOverall = itemsCountRegexArray[1];
     } else {
         // Unable to get number of results
@@ -157,22 +163,23 @@ async function searchQuery(page, query, limit = 0) {
     // Create the search output array
     let searchOutputArray = [];
 
-    // Create the count
-    let count = 0;
+    // Zero the count
+    search_Count = 0;
 
     // Go through all the pages with search results on them
     for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
-        let resultsForPage = await parseSearchResults(page, pageNumber, count);
+        let resultsForPage = await parseSearchResults(page, pageNumber, limit);
         searchOutputArray = searchOutputArray.concat(resultsForPage);
     }
 
     // Add to the search results array
-    searchResults.push({
+    searchResults = {
         search: query,
         count: numberOfSearchItemsOverall,
         items: searchOutputArray
-    });
+    };
 
+    // Return the results
     return searchResults;
 }
 
@@ -181,10 +188,9 @@ async function searchQuery(page, query, limit = 0) {
  * Loads the search pages and parses data
  * @param {page} page - browser page to do search
  * @param {Number} index - current index of the page (e.x. 1 out of 5 pages)
- * @param {Number} count - current count of items (to limit output)
  * @returns {Object[]} - search page results
  */
-async function parseSearchResults(page, index, count, limit = 0) {
+async function parseSearchResults(page, index, limit = 0) {
 
     // Output array
     let searchPageResults = [];
@@ -196,11 +202,16 @@ async function parseSearchResults(page, index, count, limit = 0) {
         let currentURL = await page.url();
 
         // Find the page number in the URL
+        let currentPageNum = index;
         let urlRegex = currentURL.match(/&p=(\d+)&/);
-        let currentPageNum = parseInt(urlRegex[1]);
+        if (!urlRegex || urlRegex.length < 2) {
+            winston.debug('Parsing Search Results - unable to identify the current page number');
+        } else {
+            currentPageNum = parseInt(urlRegex[1]) + 1;
+        }
 
         // Change it to the next page number
-        let newURL = currentURL.replace('&p=' + currentPageNum + '&');
+        let newURL = currentURL.replace(/&p=\d+&/, '&p=' + currentPageNum + '&');
 
         // Load the new url
         await page.goto(newURL);
@@ -216,9 +227,9 @@ async function parseSearchResults(page, index, count, limit = 0) {
     winston.debug('Number of results on page ' + index + ': ' + numberResultsForSearch);
 
     // Check if there is a limit to the number of search results
-    if (Number(limit) > 0 && Number(numberResultsForSearch) + Number(count) > Number(limit)) {
+    if (Number(limit) > 0 && Number(numberResultsForSearch) + Number(search_Count) > Number(limit)) {
         // Limit the number of results
-        numberResultsForSearch = limit - count;
+        numberResultsForSearch = limit - search_Count;
         // Limit the number of search results found on the page
         winston.debug('Limiting number of results on page ' + index + ' to: ' + numberResultsForSearch);
     }
@@ -291,8 +302,8 @@ async function parseSearchResults(page, index, count, limit = 0) {
             image: productImageURL
         });
 
-        // Increment the count
-        count++;
+        // Increment the search count
+        search_Count++;
     }
 
     // Return the results
