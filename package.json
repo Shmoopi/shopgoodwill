@@ -7,7 +7,7 @@
     "test": "mocha tests/**.spec.js"
   },
   "bin": {
-    "shopgoodwill": "./src/index.js"
+    "shopgoodwill": "index.js"
   },
   "author": "Shmoopi LLC",
   "license": "ISC",

@@ -24,9 +24,9 @@ const program = require('commander');
 const winston = require('winston');
 
 // Auth
-const auth = require('./auth');
+const auth = require('./src/auth');
 // Search
-const search = require('./search');
+const search = require('./src/search');
 
 /* Constants */
 
