@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "description": "shopgoodwill.com CLI - search and bid",
   "main": "index.js",
+  "repository": "github:Shmoopi/shopgoodwill",
   "scripts": {
     "test": "mocha tests/**.spec.js"
   },
